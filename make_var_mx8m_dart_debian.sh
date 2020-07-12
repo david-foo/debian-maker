@@ -320,7 +320,7 @@ echo "
 # /dev/mmcblk0p1  /boot           vfat    defaults        0       0
 " > etc/fstab
 
-echo "imx8-var-dart" > etc/hostname
+echo "embest-imx8m" > etc/hostname
 
 echo "auto lo
 iface lo inet loopback
@@ -408,11 +408,6 @@ protected_install network-manager
 # sdma package
 protected_install imx-firmware-sdma
 
-# graphical packages
-protected_install libdrm-vivante1
-protected_install imx-gpu-viv-core
-protected_install weston
-
 # added alsa & gstreamer
 protected_install alsa-utils
 protected_install gstreamer1.0-alsa
@@ -436,20 +431,6 @@ protected_install iperf
 # mtd
 protected_install mtd-utils
 
-# bluetooth
-protected_install bluetooth
-protected_install bluez-obexd
-protected_install bluez-tools
-protected_install blueman
-protected_install gconf2
-
-# wifi support packages
-protected_install hostapd
-protected_install udhcpd
-
-# can support
-protected_install can-utils
-
 apt-get -y autoremove
 
 # create users and set password
@@ -467,34 +448,7 @@ EOF
 	chroot ${ROOTFS_BASE} /third-stage
 
 ## fourth-stage ##
-### install variscite-bt service
-	install -m 0755 ${G_VARISCITE_PATH}/brcm_patchram_plus ${ROOTFS_BASE}/usr/bin
-	install -d -m 0755 ${ROOTFS_BASE}/etc/bluetooth
-	install -m 0644 ${G_VARISCITE_PATH}/${SOM}/variscite-bt.conf ${ROOTFS_BASE}/etc/bluetooth
-	install -m 0755 ${G_VARISCITE_PATH}/variscite-bt ${ROOTFS_BASE}/etc/bluetooth
-	install -m 0644 ${G_VARISCITE_PATH}/variscite-bt.service ${ROOTFS_BASE}/lib/systemd/system
-	ln -s /lib/systemd/system/variscite-bt.service \
-		${ROOTFS_BASE}/etc/systemd/system/multi-user.target.wants/variscite-bt.service
 
-### install variscite-wifi service
-	install -d -m 0755 ${ROOTFS_BASE}/etc/wifi
-	install -m 0644 ${G_VARISCITE_PATH}/${SOM}/blacklist.conf ${ROOTFS_BASE}/etc/wifi
-	install -m 0644 ${G_VARISCITE_PATH}/${SOM}/variscite-wifi.conf ${ROOTFS_BASE}/etc/wifi
-	install -m 0644 ${G_VARISCITE_PATH}/${SOM}/variscite-wifi-common.sh ${ROOTFS_BASE}/etc/wifi
-	install -m 0755 ${G_VARISCITE_PATH}/variscite-wifi ${ROOTFS_BASE}/etc/wifi
-	install -m 0644 ${G_VARISCITE_PATH}/variscite-wifi.service ${ROOTFS_BASE}/lib/systemd/system
-	ln -s /lib/systemd/system/variscite-wifi.service \
-		${ROOTFS_BASE}/etc/systemd/system/multi-user.target.wants/variscite-wifi.service
-
-### install weston service
-	install -d -m 0755 ${ROOTFS_BASE}/etc/xdg/weston
-	install -m 0644 ${G_VARISCITE_PATH}/${SOM}/weston.ini ${ROOTFS_BASE}/etc/xdg/weston
-	install -m 0755 ${G_VARISCITE_PATH}/${SOM}/weston.config ${ROOTFS_BASE}/etc/default/weston
-	install -m 0755 ${G_VARISCITE_PATH}/weston-start ${ROOTFS_BASE}/usr/bin/weston-start
-	install -m 0755 ${G_VARISCITE_PATH}/weston.profile ${ROOTFS_BASE}/etc/profile.d/weston.sh
-	install -m 0644 ${G_VARISCITE_PATH}/weston.service ${ROOTFS_BASE}/lib/systemd/system
-	ln -s /lib/systemd/system/weston.service \
-		${ROOTFS_BASE}/etc/systemd/system/multi-user.target.wants/weston.service
 
 ## end packages stage ##
 [ "${G_USER_PACKAGES}" != "" ] && {
@@ -523,14 +477,6 @@ rm -f user-stage
 	install -m 0644 ${G_VARISCITE_PATH}/issue.net ${ROOTFS_BASE}/etc/
 	install -m 0755 ${G_VARISCITE_PATH}/rc.local ${ROOTFS_BASE}/etc/
 	install -m 0644 ${G_VARISCITE_PATH}/splash.bmp ${ROOTFS_BASE}/boot/
-	cp ${PARAM_OUTPUT_DIR}/Image.gz ${ROOTFS_BASE}/boot
-	cp ${PARAM_OUTPUT_DIR}/*.dtb ${ROOTFS_BASE}/boot
-	ln -sf fsl-imx8mq-var-dart-sd-emmc-lvds.dtb ${ROOTFS_BASE}/boot/fsl-imx8mq-var-dart.dtb
-	ln -sf fsl-imx8mq-var-dart-sd-emmc-lvds-cb12.dtb ${ROOTFS_BASE}/boot/fsl-imx8mq-var-dart-cb12.dtb
-
-	mkdir -p ${ROOTFS_BASE}/usr/share/images/desktop-base/
-	install -m 0644 ${G_VARISCITE_PATH}/wallpaper.png \
-		${ROOTFS_BASE}/usr/share/images/desktop-base/default
 
 ## added alsa default configs ##
 	install -m 0644 ${G_VARISCITE_PATH}/asound.state ${ROOTFS_BASE}/var/lib/alsa/
@@ -538,24 +484,6 @@ rm -f user-stage
 
 ## Revert regular booting
 	rm -f ${ROOTFS_BASE}/usr/sbin/policy-rc.d
-
-## install kernel modules in rootfs
-	install_kernel_modules ${G_CROSS_COMPILER_PATH}/${G_CROSS_COMPILER_PREFIX} ${G_LINUX_KERNEL_DEF_CONFIG} ${G_LINUX_KERNEL_SRC_DIR} ${ROOTFS_BASE} || {
-		pr_error "Failed #$? in function install_kernel_modules"
-		return 2;
-	}
-
-## copy all kernel headers for development
-	mkdir -p ${ROOTFS_BASE}/usr/local/src/linux-imx/drivers/staging/android/uapi
-	cp ${G_LINUX_KERNEL_SRC_DIR}/drivers/staging/android/uapi/* ${ROOTFS_BASE}/usr/local/src/linux-imx/drivers/staging/android/uapi
-	cp -r ${G_LINUX_KERNEL_SRC_DIR}/include ${ROOTFS_BASE}/usr/local/src/linux-imx/
-
-## copy custom files
-	cp ${G_VARISCITE_PATH}/fw_env.config ${ROOTFS_BASE}/etc
-	cp ${PARAM_OUTPUT_DIR}/fw_printenv ${ROOTFS_BASE}/usr/bin
-	ln -sf fw_printenv ${ROOTFS_BASE}/usr/bin/fw_setenv
-	cp ${G_VARISCITE_PATH}/10-imx.rules ${ROOTFS_BASE}/etc/udev/rules.d
-	cp ${G_VARISCITE_PATH}/${SOM}/*.rules ${ROOTFS_BASE}/etc/udev/rules.d
 
 
 ## clenup command
@@ -1011,18 +939,6 @@ function cmd_make_rootfs() {
 		return 1;
 	}
 	cd -
-
-	## make bcm firmwares
-	make_bcm_fw ${G_BCM_FW_SRC_DIR} ${G_ROOTFS_DIR} || {
-		pr_error "Failed #$? in function make_tarbar"
-		return 4;
-	};
-
-	## pack rootfs
-	make_tarbar ${G_ROOTFS_DIR} ${G_ROOTFS_TARBAR_PATH} || {
-		pr_error "Failed #$? in function make_tarbar"
-		return 4;
-	}
 
 	return 0;
 }
