@@ -26,7 +26,7 @@ readonly SCRIPT_START_DATE=`date +%Y%m%d`
 readonly LOOP_MAJOR=7
 
 # default mirror
-readonly DEF_DEBIAN_MIRROR="http://httpredir.debian.org/debian"
+readonly DEF_DEBIAN_MIRROR="http://mirrors.cloud.tencent.com/debian"
 readonly DEB_RELEASE="stretch"
 readonly DEF_ROOTFS_TARBAR_NAME="rootfs.tar.gz"
 
@@ -170,22 +170,6 @@ done
 	echo "Debug mode enabled!"
 	set -x
 };
-
-if [ "${SOM}" = "imx8m-var-dart" ]; then
-	IMXGSTPLG="imx-gst1.0-plugin-mx8mq"
-elif [ "${SOM}" = "imx8mm-var-dart" ]; then
-	IMXGSTPLG="imx-gst1.0-plugin-mx8mm"
-else
-	echo "Unknown target SOM ${SOM}"
-	exit 1
-fi
-
-if [ -d ${G_VARISCITE_PATH}/${SOM} ]; then
-	echo "Building Debian for SOM ${SOM}"
-else
-	echo "Missing custom files for SOM ${SOM}"
-	exit 1
-fi
 
 ## declarate dinamic variables ##
 readonly G_ROOTFS_TARBAR_PATH="${PARAM_OUTPUT_DIR}/${DEF_ROOTFS_TARBAR_NAME}"
@@ -393,7 +377,9 @@ apt-get update || apt-get upgrade
 protected_install locales
 protected_install ntp
 protected_install openssh-server
-protected_install nfs-common
+protected_install rsync
+protected_install evtest
+protected_install alsa-utils
 
 # packages required when flashing emmc
 protected_install dosfstools
@@ -405,19 +391,6 @@ sed -i -e 's/#PermitRootLogin.*/PermitRootLogin\tyes/g' /etc/ssh/sshd_config
 protected_install net-tools
 protected_install network-manager
 
-# sdma package
-protected_install imx-firmware-sdma
-
-# added alsa & gstreamer
-protected_install alsa-utils
-protected_install gstreamer1.0-alsa
-protected_install gstreamer1.0-plugins-bad
-protected_install gstreamer1.0-plugins-base
-protected_install gstreamer1.0-plugins-base-apps
-protected_install gstreamer1.0-plugins-ugly
-protected_install gstreamer1.0-plugins-good
-protected_install gstreamer1.0-tools
-protected_install ${IMXGSTPLG}
 
 # added i2c tools
 protected_install i2c-tools
@@ -431,12 +404,10 @@ protected_install iperf
 # mtd
 protected_install mtd-utils
 
+
 apt-get -y autoremove
 
 # create users and set password
-useradd -m -G audio -s /bin/bash user
-usermod -a -G video user
-echo "user:user" | chpasswd
 echo "root:root" | chpasswd
 
 # sado kill
@@ -472,15 +443,7 @@ rm -f user-stage
 
 };
 
-## binaries rootfs patching ##
-	install -m 0644 ${G_VARISCITE_PATH}/issue ${ROOTFS_BASE}/etc/
-	install -m 0644 ${G_VARISCITE_PATH}/issue.net ${ROOTFS_BASE}/etc/
-	install -m 0755 ${G_VARISCITE_PATH}/rc.local ${ROOTFS_BASE}/etc/
-	install -m 0644 ${G_VARISCITE_PATH}/splash.bmp ${ROOTFS_BASE}/boot/
 
-## added alsa default configs ##
-	install -m 0644 ${G_VARISCITE_PATH}/asound.state ${ROOTFS_BASE}/var/lib/alsa/
-	install -m 0644 ${G_VARISCITE_PATH}/asound.conf ${ROOTFS_BASE}/etc/
 
 ## Revert regular booting
 	rm -f ${ROOTFS_BASE}/usr/sbin/policy-rc.d
